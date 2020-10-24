@@ -10,17 +10,17 @@ local Priest = MaxDps:NewModule('Priest');
 local SH = {
 	Shadowform         = 232698,
 	MindBlast          = 8092,
-	ShadowWordVoid     = 205351,
+	--ShadowWordVoid     = 205351,
 	ShadowWordPain     = 589,
 	VampiricTouch      = 34914,
 	Misery             = 238558,
 	VoidEruption       = 228260,
-	DarkAscension      = 280711,
+	--DarkAscension      = 280711,
 	--Voidform           = 228264,
 	Voidform           = 194249,
 	VoidBolt           = 228266,
 	VoidBolt2          = 205448,
-	DarkVoid           = 263346,
+	--DarkVoid           = 263346,
 	SurrenderToMadness = 193223,
 	Mindbender         = 200174,
 	Shadowfiend        = 34433,
@@ -28,14 +28,18 @@ local SH = {
 	MindSear           = 48045,
 	ShadowWordDeath    = 32379,
 	VoidTorrent        = 263165,
-	LegacyOfTheVoid    = 193225,
-	MindFlay           = 15407
+	--LegacyOfTheVoid    = 193225,
+	MindFlay           = 15407,
+	SearingNightmare   = 341385,
+	Damnation          = 341374,
+	DevouringPlague.   = 335467
 };
 
 -- Spells
 local DI = {
 	Penance            = 47540,
 	PurgeTheWicked     = 204197,
+	ShadowWordDeath    = 32379,
 	PurgeTheWickedAura = 204213,
 	Penance            = 47540,
 	Smite              = 585,
@@ -173,16 +177,8 @@ function Priest:ShadowPrecombat()
 	end
 
 	-- mind_blast;
-	if talents[SH.ShadowWordVoid] then
-		if (cooldown[SH.ShadowWordVoid].charges >= 2 or
-			cooldown[SH.ShadowWordVoid].charges >= 1 and currentSpell ~= SH.ShadowWordVoid)
-		then
-			return SH.ShadowWordVoid;
-		end
-	else
-		if cooldown[SH.MindBlast].ready and currentSpell ~= SH.MindBlast then
-			return SH.MindBlast;
-		end
+	if cooldown[SH.MindBlast].ready and currentSpell ~= SH.MindBlast then
+		return SH.MindBlast;
 	end
 end
 
@@ -195,35 +191,16 @@ function Priest:ShadowAoe()
 	local talents = fd.talents;
 	local gcd = fd.gcd;
 	local insanity = UnitPower('player', Enum.PowerType.Insanity);
-	local insanityLevel = talents[SH.LegacyOfTheVoid] and 60 or 90;
 	local VoidBolt = fd.VoidBolt;
 
 	-- void_eruption;
-	if not buff[SH.Voidform].up and currentSpell ~= SH.VoidEruption and insanity >= insanityLevel then
+	if not buff[SH.Voidform].up and cooldown[SH.VoidEruption].ready then
 		return SH.VoidEruption;
 	end
 
-	-- dark_ascension,if=buff.voidform.down;
-	if talents[SH.DarkAscension] and cooldown[SH.DarkAscension].ready and
-		not buff[SH.Voidform].up and insanity < 50
-	then
-		return SH.DarkAscension;
-	end
-
 	-- void_bolt,if=talent.dark_void.enabled&dot.shadow_word_pain.remains>travel_time;
-	if buff[SH.Voidform].up and cooldown[SH.VoidBolt2].remains < 0.25 and
-		talents[SH.DarkVoid] and debuff[SH.ShadowWordPain].remains > gcd * 2 then
+	if buff[SH.Voidform].up and cooldown[SH.VoidBolt2].remains < gcd and debuff[SH.ShadowWordPain].remains > gcd * 2 then
 		return VoidBolt;
-	end
-
-	-- surrender_to_madness,if=buff.voidform.stack>=(15+buff.bloodlust.up);
-	if talents[SH.SurrenderToMadness] and cooldown[SH.SurrenderToMadness].ready and (buff[SH.Voidform].count >= (15 + buff[SH.Bloodlust].up)) then
-		return SH.SurrenderToMadness;
-	end
-
-	-- dark_void,if=raid_event.adds.in>10;
-	if talents[SH.DarkVoid] and cooldown[SH.DarkVoid].ready and currentSpell ~= SH.DarkVoid then
-		return SH.DarkVoid;
 	end
 
 	-- mindbender;
@@ -235,7 +212,15 @@ function Priest:ShadowAoe()
 	if talents[SH.ShadowCrash] and cooldown[SH.ShadowCrash].ready then
 		return SH.ShadowCrash;
 	end
-
+	
+	if talents[SH.SearingNightmare] and currentspell = SH.MindSear and insanity => 35 then
+		return SH.SearingNightmare;
+	end
+	
+	if not talents[SH.SearingNightmare] and insanity => 50 then
+		return SH.DevouringPlague;
+	end
+	
 	-- mind_sear,chain=1,interrupt_immediate=1,interrupt_if=ticks>=2&(cooldown.void_bolt.up|cooldown.mind_blast.up);
 	return SH.MindSear;
 end
@@ -248,35 +233,25 @@ function Priest:ShadowCleave()
 	local currentSpell = fd.currentSpell;
 	local talents = fd.talents;
 	local targets = fd.targets;
+	local gcd = fd.gcd;
 	local timeToDie = fd.timeToDie;
 	local targetHp = fd.targetHp;
 	local VoidBolt = fd.VoidBolt;
 	local insanity = UnitPower('player', Enum.PowerType.Insanity);
-	local insanityLevel = talents[SH.LegacyOfTheVoid] and 60 or 90;
 
 	-- void_eruption;
-	if not buff[SH.Voidform].up and currentSpell ~= SH.VoidEruption and insanity > insanityLevel then
+	if not buff[SH.Voidform].up and currentSpell ~= SH.VoidEruption then
 		return SH.VoidEruption;
 	end
 
-	-- dark_ascension,if=buff.voidform.down;
-	if talents[SH.DarkAscension] and cooldown[SH.DarkAscension].ready and (not buff[SH.Voidform].up) then
-		return SH.DarkAscension;
-	end
-
 	-- void_bolt;
-	if buff[SH.Voidform].up and cooldown[SH.VoidBolt2].remains < 0.25 then
+	if buff[SH.Voidform].up and cooldown[SH.VoidBolt2].remains < gcd then
 		return VoidBolt;
 	end
 
 	-- shadow_word_death,target_if=target.time_to_die<3|buff.voidform.down;
-	if talents[SH.ShadowWordDeath] and targetHp < 0.2 and timeToDie < 3 and not buff[SH.Voidform].up then
+	if cooldown[SH.ShadowWordDeath] and targetHp < 0.2 then
 		return SH.ShadowWordDeath;
-	end
-
-	-- dark_void,if=raid_event.adds.in>10;
-	if talents[SH.DarkVoid] and cooldown[SH.DarkVoid].ready and currentSpell ~= SH.DarkVoid then
-		return SH.DarkVoid;
 	end
 
 	-- mindbender;
@@ -285,18 +260,18 @@ function Priest:ShadowCleave()
 	end
 
 	-- mind_blast;
-	if talents[SH.ShadowWordVoid] then
-		if (cooldown[SH.ShadowWordVoid].charges >= 2 or
-			cooldown[SH.ShadowWordVoid].charges >= 1 and currentSpell ~= SH.ShadowWordVoid)
-		then
-			return SH.ShadowWordVoid;
-		end
-	else
-		if cooldown[SH.MindBlast].ready and currentSpell ~= SH.MindBlast then
-			return SH.MindBlast;
-		end
+	if cooldown[SH.MindBlast].ready and currentSpell ~= SH.MindBlast then
+		return SH.MindBlast;
 	end
-
+	
+	if not talents[SH.SearingNightmare] and insanity => 50 then
+		return SH.DevouringPlague;
+	end
+	
+	if talents[SH.SearingNightmare] and currentspell = SH.MindSear and insanity => 35 then
+		return SH.SearingNightmare;
+	end
+	
 	-- shadow_crash,if=(raid_event.adds.in>5&raid_event.adds.duration<2)|raid_event.adds.duration>2;
 	if talents[SH.ShadowCrash] and cooldown[SH.ShadowCrash].ready and targets >= 2 then
 		return SH.ShadowCrash;
@@ -304,10 +279,15 @@ function Priest:ShadowCleave()
 
 	-- shadow_word_pain,target_if=refreshable&target.time_to_die>4,if=!talent.misery.enabled&!talent.dark_void.enabled;
 	if debuff[SH.ShadowWordPain].refreshable and timeToDie > 4 and
-		not talents[SH.Misery] and
-		not talents[SH.DarkVoid]
+		not talents[SH.Misery]
 	then
 		return SH.ShadowWordPain;
+	end
+	
+	if debuff[SH.ShadowWordPain].refreshable and timeToDie > 4 and
+		talents[SH.Misery]
+	then
+		return SH.VampiricTouch;
 	end
 
 	-- vampiric_touch,target_if=refreshable,if=(target.time_to_die>6);
@@ -315,13 +295,8 @@ function Priest:ShadowCleave()
 		return SH.VampiricTouch;
 	end
 
-	-- vampiric_touch,target_if=dot.shadow_word_pain.refreshable,if=(talent.misery.enabled&target.time_to_die>4);
-	if currentSpell ~= SH.VampiricTouch and talents[SH.Misery] and timeToDie > 4 then
-		return SH.VampiricTouch;
-	end
-
 	-- void_torrent,if=buff.voidform.up;
-	if talents[SH.VoidTorrent] and cooldown[SH.VoidTorrent].ready and (buff[SH.Voidform].up) then
+	if talents[SH.VoidTorrent] and cooldown[SH.VoidTorrent].ready and debuff[SH.DevouringPlague].refreshable then
 		return SH.VoidTorrent;
 	end
 
@@ -350,85 +325,38 @@ function Priest:ShadowSingle()
 
 	-- variable,name=dots_up,op=set,value=dot.shadow_word_pain.ticking&dot.vampiric_touch.ticking;
 	local dotsUp = debuff[SH.ShadowWordPain].up and debuff[SH.VampiricTouch].up;
-	local insanityLevel = talents[SH.LegacyOfTheVoid] and 60 or 90;
 
 	-- void_eruption;
-	if not buff[SH.Voidform].up and currentSpell ~= SH.VoidEruption and insanity >= insanityLevel then
+	if not buff[SH.Voidform].up and currentSpell ~= SH.VoidEruption then
 		return SH.VoidEruption;
 	end
 
-	-- dark_ascension,if=buff.voidform.down;
-	if talents[SH.DarkAscension] and cooldown[SH.DarkAscension].ready and not buff[SH.Voidform].up and insanity < 50 then
-		return SH.DarkAscension;
-	end
-
 	-- void_bolt;
-	if buff[SH.Voidform].up and cooldown[SH.VoidBolt2].remains < 0.25 then
+	if buff[SH.Voidform].up and cooldown[SH.VoidBolt2].remains < gcd then
 		return VoidBolt;
 	end
 
-	-- shadow_word_death,if=target.time_to_die<3|cooldown.shadow_word_death.charges=2|(cooldown.shadow_word_death.charges=1&cooldown.shadow_word_death.remains<gcd.max);
-	if talents[SH.ShadowWordDeath] and targetHp < 0.2 and (
-		timeToDie < 3 or
-		cooldown[SH.ShadowWordDeath].charges >= 2 or
-		(cooldown[SH.ShadowWordDeath].charges >= 1 and cooldown[SH.ShadowWordDeath].remains < gcd)
-	) then
-		return SH.ShadowWordDeath;
-	end
-
-	-- surrender_to_madness,if=buff.voidform.stack>=(15+buff.bloodlust.up)&target.time_to_die>200|target.time_to_die<75;
-	if talents[SH.SurrenderToMadness] and cooldown[SH.SurrenderToMadness].ready and
-		(buff[SH.Voidform].count >= 15 and timeToDie > 200 or timeToDie < 75)
-	then
-		return SH.SurrenderToMadness;
-	end
-
-	-- dark_void,if=raid_event.adds.in>10;
-	if talents[SH.DarkVoid] and cooldown[SH.DarkVoid].ready and currentSpell ~= SH.DarkVoid and targets < 2 then
-		return SH.DarkVoid;
-	end
-
 	-- mindbender;
-	if talents[SH.Mindbender] and cooldown[SH.Mindbender].ready then
+	if talents[SH.Mindbender] and cooldown[SH.Mindbender].ready and buff[SH.Voidform].up then
 		return SH.Mindbender;
 	end
-
-	-- shadow_word_death,if=!buff.voidform.up|(cooldown.shadow_word_death.charges=2&buff.voidform.stack<15);
-	if talents[SH.ShadowWordDeath] and targetHp < 0.2 and (
-		not buff[SH.Voidform].up or
-		(cooldown[SH.ShadowWordDeath].charges >= 2 and buff[SH.Voidform].count < 15)
-	) then
-		return SH.ShadowWordDeath;
+	
+	if insanity => 50 then
+		return SH.DevouringPlague;
 	end
-
+	
 	-- shadow_crash,if=raid_event.adds.in>5&raid_event.adds.duration<20;
 	if talents[SH.ShadowCrash] and cooldown[SH.ShadowCrash].ready then
 		return SH.ShadowCrash;
 	end
 
 	-- mind_blast,if=variable.dots_up;
-	if talents[SH.ShadowWordVoid] then
-		if (cooldown[SH.ShadowWordVoid].charges >= 2 or
-			cooldown[SH.ShadowWordVoid].charges >= 1 and currentSpell ~= SH.ShadowWordVoid)
-			and dotsUp
-		then
-			return SH.ShadowWordVoid;
-		end
-	else
-		if cooldown[SH.MindBlast].ready and currentSpell ~= SH.MindBlast and dotsUp then
-			return SH.MindBlast;
-		end
-	end
-
-	-- void_torrent,if=dot.shadow_word_pain.remains>4&dot.vampiric_touch.remains>4&buff.voidform.up;
-	if talents[SH.VoidTorrent] and cooldown[SH.VoidTorrent].ready and (
-		debuff[SH.ShadowWordPain].remains > 4 and debuff[SH.VampiricTouch].remains > 4 and buff[SH.Voidform].up
-	) then
-		return SH.VoidTorrent;
+	if cooldown[SH.MindBlast].ready and currentSpell ~= SH.MindBlast and dotsUp then
+		return SH.MindBlast;
 	end
 
 	-- shadow_word_pain,if=refreshable&target.time_to_die>4&!talent.misery.enabled&!talent.dark_void.enabled;
-	if debuff[SH.ShadowWordPain].refreshable and timeToDie > 4 and not talents[SH.Misery] and not talents[SH.DarkVoid] then
+	if debuff[SH.ShadowWordPain].refreshable and timeToDie > 4 and not talents[SH.Misery] then
 		return SH.ShadowWordPain;
 	end
 
@@ -438,6 +366,10 @@ function Priest:ShadowSingle()
 		(talents[SH.Misery] and debuff[SH.ShadowWordPain].refreshable)
 	) then
 		return SH.VampiricTouch;
+	end
+	
+	if talents[SH.VoidTorrent] and cooldown[SH.VoidTorrent].ready and debuff[SH.DevouringPlague].refreshable then
+		return SH.VoidTorrent;
 	end
 
 	-- mind_flay,chain=1,interrupt_immediate=1,interrupt_if=ticks>=2&(cooldown.void_bolt.up|cooldown.mind_blast.up);
