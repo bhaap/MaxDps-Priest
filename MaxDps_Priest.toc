@@ -1,6 +1,6 @@
 ## Title: MaxDps_Priest
 ## Version: 9.0.1
-## Author: Kaminaris
+## Author: Kaminaris/Bhaap
 ## Interface: 90100
 ## Dependencies: MaxDps
 ## LoadOnDemand: 1
